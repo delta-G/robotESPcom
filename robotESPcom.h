@@ -13,7 +13,7 @@ void setupWifi();
 void setup();
 void loop();
 
-void comHandler(char);
+void comHandler();
 
 void motorCommand();
 

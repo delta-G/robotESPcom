@@ -1,16 +1,19 @@
 #include "robotESPcom.h"
 
-#define DEBUG
+//#define DEBUG
 
 #define dirA D3
 #define dirB D4
 #define enA D1
 #define enB D2
 
-	WiFiServer server(1234);
-	WiFiClient client;
+WiFiServer server(1234);
+WiFiClient client;
 
-	char commandBuffer[10];
+char commandBuffer[100];
+char returnBuffer[100];
+boolean returnReady = false;
+
 
 void setupWiFi() {
 	WiFi.mode(WIFI_AP);
@@ -48,39 +51,63 @@ void loop() {
 
 	static boolean packetActive = false;
 	static uint8_t index = 0;
+	static boolean readingReturn = false;
+	static uint8_t rindex = 0;
 
 	if (!client.connected()) {
-			// try to connect to a new client
-			client = server.available();
-		} else {
-			// read data from the connected client
-			if (client.available() > 0) {
-				char c = client.read();
+		// try to connect to a new client
+		client = server.available();
+	} else {
+		// read data from the connected client
+		if (client.available() > 0) {
+			char c = client.read();
 
-				if(packetActive){
-						commandBuffer[index] = c;
-						commandBuffer[++index] = 0;
-						if(c == EOP){
-							comHandler(c);
-							packetActive = false;
-						}
-					}
+			if (packetActive) {
+				commandBuffer[index] = c;
+				commandBuffer[++index] = 0;
+				if (c == EOP) {
+					comHandler();
+					packetActive = false;
+				}
+			}
 
-					else if(c == SOP){
-						index = 0;
-						commandBuffer[index] = c;
-						commandBuffer[++index] = 0;
-						packetActive = true;
-					}
+			else if (c == SOP) {
+				index = 0;
+				commandBuffer[index] = c;
+				commandBuffer[++index] = 0;
+				packetActive = true;
+			}
+
+			if(returnReady){
+				client.print(returnBuffer);
+				returnReady = false;
 			}
 		}
+	}
+
+
+	if(Serial.available() && !returnReady){
+		char s = Serial.read();
+
+		if(s == SOP){
+			readingReturn = true;
+			rindex = 0;
+		}
+		if (readingReturn){
+			returnBuffer[rindex] = s;
+			returnBuffer[++rindex] = 0;
+
+			if(s == EOP){
+				returnReady = true;
+			}
+		}
+	}
 }
 
+void comHandler() {
 
-void comHandler(char c){
-
-	if(commandBuffer[0] == SOP){
-		switch(commandBuffer[1]){
+	if (commandBuffer[0] == SOP) {
+		switch (commandBuffer[1]) {
 
 		case 'M':
 			motorCommand();
@@ -91,38 +118,38 @@ void comHandler(char c){
 			Serial.print(commandBuffer);
 			break;
 
-		default :
+		case 'R':
+			// request for data
+			Serial.print(commandBuffer);
+			break;
+
+		default:
 			return;
 		}
 	}
 }
 
-
-void motorCommand(){
-	if(commandBuffer[2] == 'R'){
-		if(commandBuffer[4] == '1'){
+void motorCommand() {
+	if (commandBuffer[2] == 'R') {
+		if (commandBuffer[4] == '1') {
 			digitalWrite(dirA, HIGH);
 			digitalWrite(enA, HIGH);
-		}
-		else if(commandBuffer[4] == '-' && commandBuffer[5] == '1'){
+		} else if (commandBuffer[4] == '-' && commandBuffer[5] == '1') {
 			digitalWrite(dirA, LOW);
 			digitalWrite(enA, HIGH);
-		}
-		else {
+		} else {
 			digitalWrite(enA, LOW);
 		}
 	}
 
-	else if(commandBuffer[2] == 'L'){
-		if(commandBuffer[4] == '1'){
+	else if (commandBuffer[2] == 'L') {
+		if (commandBuffer[4] == '1') {
 			digitalWrite(dirB, LOW);
 			digitalWrite(enB, HIGH);
-		}
-		else if(commandBuffer[4] == '-' && commandBuffer[5] == '1'){
+		} else if (commandBuffer[4] == '-' && commandBuffer[5] == '1') {
 			digitalWrite(dirB, HIGH);
 			digitalWrite(enB, HIGH);
-		}
-		else {
+		} else {
 			digitalWrite(enB, LOW);
 		}
 	}
