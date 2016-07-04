@@ -14,7 +14,6 @@ char commandBuffer[100];
 char returnBuffer[100];
 boolean returnReady = false;
 
-
 void setupWiFi() {
 	WiFi.mode(WIFI_AP);
 	WiFi.softAP("RControl");
@@ -78,26 +77,27 @@ void loop() {
 				packetActive = true;
 			}
 
-			if(returnReady){
-				client.print(returnBuffer);
+			if (returnReady) {
+				client.println(returnBuffer);
+				server.println(returnBuffer);
+				Serial.println(returnBuffer);
 				returnReady = false;
 			}
 		}
 	}
 
-
-	if(Serial.available() && !returnReady){
+	if (Serial.available() && !returnReady) {
 		char s = Serial.read();
 
-		if(s == SOP){
+		if (s == SOP) {
 			readingReturn = true;
 			rindex = 0;
 		}
-		if (readingReturn){
+		if (readingReturn) {
 			returnBuffer[rindex] = s;
 			returnBuffer[++rindex] = 0;
 
-			if(s == EOP){
+			if (s == EOP) {
 				returnReady = true;
 			}
 		}
@@ -120,7 +120,14 @@ void comHandler() {
 
 		case 'R':
 			// request for data
-			Serial.print(commandBuffer);
+			if (commandBuffer[2] == 'B') {
+				char tb[10];
+				sprintf(tb, "<B,%d>", analogRead(A0));
+				strcpy(returnBuffer, tb);
+				returnReady = true;
+			} else {
+				Serial.print(commandBuffer);
+			}
 			break;
 
 		default:
